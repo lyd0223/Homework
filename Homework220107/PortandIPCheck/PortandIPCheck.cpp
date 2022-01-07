@@ -55,7 +55,7 @@ int main()
 					IsNumValid = false;
 					break;
 				}
-				start = i;
+				start = i+1;
 				pointCount++;
 			}
 		}
