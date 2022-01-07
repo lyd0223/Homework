@@ -21,7 +21,7 @@ int main()
 
 	std::string IPStr = "";
 	std::string PortStr = "";
-
+	
 	while (true)
 	{
 		std::cout << "IP를 입력해주세요." << std::endl;
@@ -55,7 +55,7 @@ int main()
 					IsNumValid = false;
 					break;
 				}
-
+				start = i;
 				pointCount++;
 			}
 		}
