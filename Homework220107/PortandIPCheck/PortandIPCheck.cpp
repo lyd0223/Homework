@@ -11,6 +11,13 @@
 
 int main()
 {
+	WSADATA wsa;
+
+	if (WSAStartup(MAKEWORD(2, 2), &wsa) != 0)
+	{
+		std::cout << "WSAStartup Error" << std::endl;
+	}
+
 	//공백들어오면 공백 지우기.
 	// 0~255 넘어가면 다시.
 	// 4자리 아니면 다시.
@@ -45,8 +52,11 @@ int main()
 		
 		int pointCount = 0;
 		int start = 0;
+		
 		for (int i = 0; i < str.size(); i++)
 		{
+			if (str[i] == ':')
+				break;
 			if (str[i] == '.')
 			{
 				std::string numStr = str.substr(start, i);
@@ -69,6 +79,7 @@ int main()
 			continue;
 		}
 		
+		//포트번호체크
 		int pivot = str.find(':');
 		if (pivot == -1) // 포트번호입력안한경우
 		{
@@ -86,4 +97,31 @@ int main()
 	}
 	std::cout << "IP 번호 \"" << IPStr << "\", PORT 번호 \"" << PortStr << "\"에 접속합니다." << std::endl;
 
+
+	SOCKADDR_IN ServerAddr = { 0, };
+	ServerAddr.sin_family = AF_INET;
+	ServerAddr.sin_port = htons(stoi(PortStr));
+
+
+	if (inet_pton(AF_INET, IPStr.c_str(), &ServerAddr.sin_addr) == SOCKET_ERROR)
+	{
+		return 0;
+
+	}
+	SOCKET ConnectSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+
+	if (ConnectSocket == INVALID_SOCKET)
+	{
+		return 0;
+	}
+
+
+	int Len = sizeof(SOCKADDR_IN);
+	if (connect(ConnectSocket, (sockaddr*)&ServerAddr, Len) == SOCKET_ERROR)
+	{
+		std::cout << "접속 실패" << std::endl;
+		return 0;
+	}
+
+	std::cout << "접속 성공" << std::endl;
 }
