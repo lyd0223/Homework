@@ -104,13 +104,10 @@ int main()
 	{
 		std::string In;
 
-		// Lock.lock();
-
 		std::cin >> In;
 
 		if (In == "q" || In == "Q")
 		{
-			//TCP면 포핸드 쉐이크를 다 깔끔하게 맞춰줍니다.
 			closesocket(SessionSocket);
 			Check = false;
 			RecvThread.join();
