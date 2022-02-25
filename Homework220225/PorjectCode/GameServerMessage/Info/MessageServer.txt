@@ -1,0 +1,6 @@
+|LoginResult-
+EGameServerCode Code;
+
+|ServerDestroy-
+
+|MonsterCreate-

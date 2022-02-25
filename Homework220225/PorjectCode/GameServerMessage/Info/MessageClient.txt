@@ -1,0 +1,6 @@
+|Login-
+std::string ID;
+std::string PW;
+
+|Lggg-
+sss dd;
