@@ -1,0 +1,3 @@
+C:\Users\lyd02\OneDrive\Documents\GitHub\ServerStudy\UnrealClient\Intermediate\Build\Win64\UE4Editor\DebugGame\UnrealClient\Definitions.UnrealClient.h
+C:\Users\lyd02\OneDrive\Documents\GitHub\ServerStudy\UnrealClient\Source\UnrealClient\Main\Character\ClientAnimInstance.h
+C:\Users\lyd02\OneDrive\Documents\GitHub\ServerStudy\UnrealClient\Intermediate\Build\Win64\UE4Editor\Inc\UnrealClient\ClientAnimInstance.generated.h
