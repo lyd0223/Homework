@@ -2,85 +2,112 @@
 
 #pragma once
 
-#include <memory>
-
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
+#include <string>
 #include <vector>
-
+#include <Memory>
+#include <functional>
+#include "../Message/Messages.h"
+#include "../Play/ChatWindow.h"
 #include "ClientGameInstance.generated.h"
 
-
-class GameServerMessage;
-
-class UnrealRecvThread : public FRunnable
+// std::thread
+// ¾î¶»°Ô ÄÚµå¸¦ º¯°æ½ÃÄÑ¼­ Ã³¸®ÇÒÁö ¿¹»óÇÒ¼ö ¾øÁÒ?
+class UnrealRecvThread : public FRunnable 
 {
 private:
-	FSocket* m_RecvSocket;
-	TAtomic<bool> m_IsAppClosed;
-
-	TQueue<std::shared_ptr<GameServerMessage>, EQueueMode::Spsc>* m_MessageQueue;
+	TAtomic<bool> IsAppClose_;
+	FSocket* RecvSocket_;
+	TQueue<std::shared_ptr<GameServerMessage>, EQueueMode::Spsc>* MessageQueue_;
 
 public:
-	UnrealRecvThread(FSocket* _RecvSocket, TQueue<std::shared_ptr<GameServerMessage>>* _MessageQueue);
+	UnrealRecvThread(FSocket* _RecvSocket, TQueue<std::shared_ptr<GameServerMessage>>* MessageQueue_);
 
 	static bool FunctionTest();
 
-	virtual uint32 Run() override;
+	uint32 Run() override;
+
+public:
 
 	void Close();
+
 };
 
+class AClientMonster;
+/**
+ * 
+ */
 UCLASS()
 class UNREALCLIENT_API UClientGameInstance : public UGameInstance
 {
 	GENERATED_BODY()
 
 private:
-	TQueue<std::shared_ptr<GameServerMessage>> m_MessageQueue;
-	UnrealRecvThread* m_RecvThread;
-	FRunnableThread* m_ThreadRunalbe;
+	TQueue<std::shared_ptr<GameServerMessage>> MessageQueue_;
 
-	ISocketSubsystem* m_SocketSubSystem;
-	FSocket* m_Socket;
+	UnrealRecvThread* RecvThread_;
+	FRunnableThread* ThreadRunalbe_;
 
-	//ì…€í”„ íŒ¨í‚· ì‹¤í—˜ìš©ìœ¼ë¡œ í´ë¼ì´ì–¸íŠ¸ ëª¨ë“œë¥¼ ë§Œë“¤ì–´ë†“ìŒ.
-	bool m_IsClientMode;
+	ISocketSubsystem* SocketSubSystem_;
+	FSocket* NewSocket_;
+
+	// TQueue<TArray<char>>
+
+	// ±×³É ¹¹µçÁö ´Ù ¿©±â¿¡´Ù°¡ ¹Ú¾Æ³öµµ µË´Ï´Ù.
+	// Ã¹¹øÂ°·Î ÀÌµ¥ÀÌÅÍ´Â ¾î´À ·¹º§¿¡¼­¸¸ ÇÊ¿äÇÏÁÒ?
+	// PlayLevel¿¡¼­¸¸ ÇÊ¿äÇÕ´Ï´Ù.
+	// ÀÌ°É ±âÁ¡À¸·Î ¸ğµç
+	// ¸ğµç ³ğµéÀ» ´Ù ÀÌ instance¿¡ ³Ö±â ½ÃÀÛÇÒ °Ì´Ï´Ù.
+	// Àú´Â º°·Î¶ó°í »ı°¢ÇÕ´Ï´Ù.
+	//UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "ClientData", meta = (AllowPrivateAccess = "true"))
+	//TArray<TSubclassOf<AClientMonster>> ArrMonsterClass_;
+
+	// Post
+	// FNonAbandonableTask
+
+	// Recv´Â ´ç¿¬È÷ ¾²·¹µå¿¡¼­ Ã³¸®ÇÏ°Ô µÉ°ÍÀÌ°í
+	// ¾ğ¸®¾óÀÇ ¾²·¹µå ¹æ½ÄÀº 2°¡Áö ¾²·¹µå ¹æ½ÄÀ» Áö¿øÇÑ´Ù.
+	
+	// ÁøÂ¥ »ı½ßµµ´Â ³ª¸¸ÀÇ ¾²·¹µå¸¦ ¸¸µå´Â °Ì´Ï´Ù.
+	// FRunnable // À» »ó¼Ó¹ŞÀº ³ª¸¸ÀÇ ¾²·¹µå ¸¦ ¸¸µå´Â°Í.
+	// FNonAbandonableTask // À» »ó¼Ó¹ŞÀº ³ª¸¸ÀÇ ¾²·¹µå ¸¦ ¸¸µå´Â°Í.
+
+private:
+	bool ClientMode_;
+
+public:
+	FORCEINLINE bool GetClientMode() 
+	{
+		return ClientMode_;
+	}
+
+	FORCEINLINE void SetClientMode(bool _Value)
+	{
+		ClientMode_ = _Value;
+	}
+
+public:
+	FString ID;
+	UChatWindow* ChatWindow_;
 
 public:
 	UClientGameInstance();
-	virtual ~UClientGameInstance() override;
-
-public:
-	bool GetIsClientMode() const
-	{
-		return m_IsClientMode;
-	}
-
-	void SetIsClientMode(bool _IsClientMode)
-	{
-		m_IsClientMode = _IsClientMode;
-	}
-
-	bool IsEmptyMessage() const
-	{
-		return m_MessageQueue.IsEmpty();
-	}
-
-public:
-	bool ServerConnect(const FString& _IPString, const FString& _PortString);
+	~UClientGameInstance();
 
 	void PushClientMessage(std::shared_ptr<GameServerMessage> _Message);
 
 	std::shared_ptr<GameServerMessage> PopMessage();
-
-	bool Send(const std::vector<uint8>& _Data);
-
-	void Close();
-
-	
-
-	virtual void FinishDestroy() override;
+	bool IsEmptyMessage();
 
 	bool IsThreadCheck();
+	bool IsGameCheck();
+
+	bool ServerConnect(const FString& _IPString, const FString& _PORTString);
+	void Close();
+
+	bool Send(const std::vector<uint8>& _Data);
+	//bool Recv();
+
+	void FinishDestroy() override;
 };

@@ -13,12 +13,9 @@ UCLASS()
 class UNREALCLIENT_API ALoginGameMode : public AGameMode
 {
 	GENERATED_BODY()
-
+	
 public:
 	ALoginGameMode();
 
-public:
-	
-public:
 	void Tick(float _Delta) override;
 };

@@ -1,0 +1,17 @@
+|LoginResult-
+EGameServerCode Code;
+
+|JoinResult-
+EJoinResult JoinResult;
+
+|ServerDestroy-
+
+|ObjectDestroy-
+int ObjectID;
+
+|MonsterUpdate-
+int ObjectID;
+int MonsterType;
+EMonsterState UpdateType;
+FVector Pos;
+FVector Dir;

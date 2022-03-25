@@ -64,6 +64,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Pawn")
 	void Move_Test();
 
+	void Mouse_On();
+
+	void Mouse_Off();
+
 
 protected:
 	virtual void BeginPlay() override;

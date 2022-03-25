@@ -205,6 +205,8 @@ void AFreeCameraPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 		UPlayerInput::AddEngineDefinedAxisMapping(FInputAxisKeyMapping("DefaultPawn_LookUp", EKeys::MouseY, -1.f));
 
 		UPlayerInput::AddEngineDefinedActionMapping(FInputActionKeyMapping("Test_Move", EKeys::Y));
+		UPlayerInput::AddEngineDefinedActionMapping(FInputActionKeyMapping("Cursor_Off", EKeys::LeftMouseButton));
+		UPlayerInput::AddEngineDefinedActionMapping(FInputActionKeyMapping("Cursor_On", EKeys::RightMouseButton));
 	}
 
 	// 얼마나 지속적으로 오래눌렀고 세게 눌렀다 약하게 눌렀다는 체크해야할때가 많습니다.
@@ -215,8 +217,11 @@ void AFreeCameraPawn::SetupPlayerInputComponent(UInputComponent* PlayerInputComp
 	PlayerInputComponent->BindAxis("DefaultPawn_Turn", this, &AFreeCameraPawn::AddControllerYawInput);
 	PlayerInputComponent->BindAxis("DefaultPawn_LookUp", this, &AFreeCameraPawn::AddControllerPitchInput);
 
-	PlayerInputComponent->BindAction("Test_Move", EInputEvent::IE_Pressed, this, &AFreeCameraPawn::Move_Test);
+	PlayerInputComponent->BindAction("Cursor_Off", EInputEvent::IE_Pressed, this, &AFreeCameraPawn::Mouse_Off);
+	PlayerInputComponent->BindAction("Cursor_On", EInputEvent::IE_Pressed, this, &AFreeCameraPawn::Mouse_On);
 
+	FInputModeGameOnly InputMode;
+	GetWorld()->GetFirstPlayerController()->SetInputMode(InputMode);
 }
 
 void AFreeCameraPawn::Move_Test() 
@@ -262,8 +267,6 @@ void AFreeCameraPawn::MoveForward(float Val)
 		if (Controller)
 		{
 			FRotator const ControlSpaceRot = Controller->GetControlRotation();
-
-
 			// AddMovementInput({100.0F, 0.0F, 0.0F}, 1.0f);
 			// transform to world space and add it
 			AddMovementInput(FRotationMatrix(ControlSpaceRot).GetScaledAxis(EAxis::X), Val);
@@ -291,4 +294,16 @@ void AFreeCameraPawn::MoveUp_World(float Val)
 	{
 		AddMovementInput(FVector::UpVector, Val);
 	}
+}
+
+void AFreeCameraPawn::Mouse_On() 
+{
+	FInputModeUIOnly InputMode;
+	GetWorld()->GetFirstPlayerController()->SetInputMode(InputMode);
+}
+
+void AFreeCameraPawn::Mouse_Off() 
+{
+	FInputModeGameOnly InputMode;
+	GetWorld()->GetFirstPlayerController()->SetInputMode(InputMode);
 }

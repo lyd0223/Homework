@@ -8,19 +8,19 @@
 #include "Interfaces/IPv4/IPv4Address.h"
 #include "Interfaces/IPv4/IPv4Endpoint.h"
 #include "GenericPlatform/GenericPlatformProcess.h"
-#include "Message/MessageConverter.h"
+#include "../Message/MessageConverter.h"
+#include "../Message/Handler/ThreadHandlerServerDestroyMessage.h"
 
-UnrealRecvThread::UnrealRecvThread(FSocket* _RecvSocket, TQueue<std::shared_ptr<GameServerMessage>>* _MessageQueue) 
+UnrealRecvThread::UnrealRecvThread(FSocket* _RecvSocket, TQueue<std::shared_ptr<GameServerMessage>>* _MessageQueue)
 {
 	if (nullptr == _RecvSocket)
 	{
 		UE_LOG(LogTemp, Error, TEXT("RecvSocket Error"));
 	}
 
-	
-	m_RecvSocket = _RecvSocket;
-	m_IsAppClosed = false;
-	m_MessageQueue = _MessageQueue;
+	RecvSocket_ = _RecvSocket;
+	MessageQueue_ = _MessageQueue;
+	IsAppClose_ = true;
 }
 
 bool UnrealRecvThread::FunctionTest() 
@@ -32,135 +32,150 @@ uint32 UnrealRecvThread::Run()
 {
 	UE_LOG(LogTemp, Log, TEXT("Recv Start"));
 
-	while (!m_IsAppClosed)
+	while (IsAppClose_)
 	{
-
 		std::vector<uint8> RecvData;
 		RecvData.resize(1024);
 		int32 RecvDataSize_ = 0;
 
-		//서버 접속체크
-		if (false == m_RecvSocket->Recv(&RecvData[0], RecvData.size(), RecvDataSize_))
+		if (false == RecvSocket_->Recv(&RecvData[0], RecvData.size(), RecvDataSize_))
 		{
-			auto Result = m_RecvSocket->GetConnectionState();
+			auto Result = RecvSocket_->GetConnectionState();
 
-			switch(Result)
+			switch (Result)
 			{
-			case ESocketConnectionState::SCS_NotConnected:
+			case SCS_NotConnected:
 				break;
-			case ESocketConnectionState::SCS_Connected: 
-				{
-					ServerDestroyMessage Message;
-					GameServerSerializer Serializer;
-					Message.Serialize(Serializer);
-
-					MessageConverter Converter = MessageConverter(Serializer.GetData());
-					m_MessageQueue->Enqueue(Converter.GetServerMessage());
-					return 0;
-				}
-
-				break;
-			case ESocketConnectionState::SCS_ConnectionError:
-				break;
-				
+			case SCS_Connected:
+				// 서버가 종료되었을때
+				// 에러는 분명하지만
+				// 아직 소켓이 커넥트 상태라고 처리된다.
+				// ThreadHandlerServerDestroy
+			{
+				ServerDestroyMessage SDM;
+				GameServerSerializer Sr;
+				SDM.Serialize(Sr);
+				MessageConverter Converter = MessageConverter(Sr.GetData());
+				MessageQueue_->Enqueue(Converter.GetServerMessage());
+				return 0;
 			}
+			case SCS_ConnectionError:
+				// 내가 직접 종료했을때
+				// 아무것도 할필요가 없다.
+				break;
+			default:
+				break;
+			}
+
 			break;
 		}
 
 		MessageConverter Converter = MessageConverter(RecvData);
-		m_MessageQueue->Enqueue(Converter.GetServerMessage());
-
+		MessageQueue_->Enqueue(Converter.GetServerMessage());
 	}
 
 	return 0;
 }
 
-void UnrealRecvThread::Close()
+void UnrealRecvThread::Close() 
 {
-	m_IsAppClosed = true;
+	IsAppClose_ = false;
 }
+
+// 언리얼을 사용한다는것은
+// 기능을 찾아본다.
+// 95%는 있어
+// 5% 조합하면 있어요.
+// 100% 있어
+// 다른 사람들의 기준으로는
+// 떼쓰는것 <= 자동
 
 UClientGameInstance::UClientGameInstance()
 {
-	m_IsClientMode = false;
+	ClientMode_ = false;
 }
 
 UClientGameInstance::~UClientGameInstance() 
 {
-	if(m_RecvThread)
+	if (nullptr != RecvThread_)
 	{
-		m_RecvThread->Exit();
-		m_RecvThread = nullptr;
+		RecvThread_->Exit();
+		RecvThread_ = nullptr;
 	}
+	int a = 0;
 }
 
 void UClientGameInstance::Close() 
 {
-	if(m_RecvThread)
+	if (nullptr != RecvThread_)
 	{
-		m_RecvThread->Close();
+		RecvThread_->Close();
 	}
-	
-	if (m_Socket == nullptr)
+
+	if (nullptr == NewSocket_)
 	{
 		return;
 	}
 
-	m_Socket->Close();
-	m_Socket = nullptr;
+	NewSocket_->Close();
+	NewSocket_ = nullptr;
 }
 
 bool UClientGameInstance::ServerConnect(const FString& _IPString, const FString& _PORTString)
 {
-	if (IsThreadCheck() == false)
+	if (false == IsThreadCheck())
 	{
 		return false;
 	}
 
 	Close();
 
-	m_SocketSubSystem = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
+	SocketSubSystem_ = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
 
 	// 이 Level Login Level에서 만들어졌다고 치고
 
-	m_Socket = m_SocketSubSystem->CreateSocket(NAME_Stream, "Test", false);
+	NewSocket_ = SocketSubSystem_->CreateSocket(NAME_Stream, TEXT("Test"), false);
 
-	if (nullptr == m_Socket)
+	if (nullptr == NewSocket_)
 	{
 		UE_LOG(LogTemp, Error, TEXT("if (nullptr == NewSocket)"));
 		return false;
 	}
 
-	m_Socket ->SetNoDelay(true);
+	NewSocket_->SetNoDelay(true);
 
 	FIPv4Address ConnectAddress;
 	FIPv4Address::Parse(_IPString, ConnectAddress);
 	int Port = static_cast<uint16>(FCString::Atoi(*_PORTString));
 	FIPv4Endpoint EndPoint = FIPv4Endpoint(ConnectAddress, Port);
-	
-	if (false == m_Socket->Connect(EndPoint.ToInternetAddr().Get()))
+	// 주소까지 만들어냈다면
+
+	if (false == NewSocket_->Connect(EndPoint.ToInternetAddr().Get()))
 	{
-		m_SocketSubSystem = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
-		FString ErrorText = m_SocketSubSystem->GetSocketError(m_SocketSubSystem->GetLastErrorCode());
-		
+		SocketSubSystem_ = ISocketSubsystem::Get(PLATFORM_SOCKETSUBSYSTEM);
+		FString ErrorText = SocketSubSystem_->GetSocketError(SocketSubSystem_->GetLastErrorCode());
+		// 빨간색으로 로그에 띄우고 싶다면 Error
 		UE_LOG(LogTemp, Error, TEXT("Server Error : %s"), *ErrorText);
-		m_Socket->Close();
-		m_Socket = nullptr;
+		NewSocket_->Close();
+		NewSocket_ = nullptr;
 		return false;
 	}
 
-	//TCP소켓 노딜레이옵션.
-	m_Socket->SetNoDelay(true);
-	
-	m_RecvThread = new UnrealRecvThread(m_Socket, &m_MessageQueue);
-	m_ThreadRunalbe = FRunnableThread::Create(m_RecvThread, TEXT("Recv Thread"));
-	
+	RecvThread_ = new UnrealRecvThread(NewSocket_, &MessageQueue_);
+
+	ThreadRunalbe_ = FRunnableThread::Create(RecvThread_, TEXT("Recv Thread"));
+
+
+
+
 	return true;
 }
 
-//플랫폼에서 멀티프로세스를 지원하는지 체크하는 함수.
 bool UClientGameInstance::IsThreadCheck() 
 {
+	// 이런 환경에서 사용한다는걸 생각조차 하지 않는다.
+	// 아예 멀티 쓰레드가 불가능
+	// 운영체제 기능이겠죠.
 	if (false == FPlatformProcess::SupportsMultithreading())
 	{
 		UE_LOG(LogTemp, Error, TEXT("Is Not Support Multithreading"));
@@ -172,10 +187,11 @@ bool UClientGameInstance::IsThreadCheck()
 
 bool UClientGameInstance::Send(const std::vector<uint8>& _Data)
 {
-	if(m_Socket == nullptr)
+	if (nullptr == NewSocket_)
 	{
 		return false;
 	}
+
 	if (0 == _Data.size())
 	{
 		return false;
@@ -183,30 +199,40 @@ bool UClientGameInstance::Send(const std::vector<uint8>& _Data)
 
 	int32 DataSendSize = 0;
 
-	return m_Socket->Send(&_Data[0], _Data.size(), DataSendSize);
+	return NewSocket_->Send(&_Data[0], _Data.size(), DataSendSize);
 }
-
-//클라이언트모드 전용푸시함수.
-void UClientGameInstance::PushClientMessage(std::shared_ptr<GameServerMessage> _Message)
-{
-	if(m_IsClientMode)
-		return;
-
-	m_MessageQueue.Enqueue(_Message);
-}
-
-std::shared_ptr<GameServerMessage> UClientGameInstance::PopMessage()
-{
-	std::shared_ptr<GameServerMessage> Message;
-	m_MessageQueue.Dequeue(Message);
-
-	return Message;
-}
-
 
 void UClientGameInstance::FinishDestroy()
 {
 	Close();
 
 	Super::FinishDestroy();
+
+	int a = 0;
+
+	
+}
+
+
+void UClientGameInstance::PushClientMessage(std::shared_ptr<GameServerMessage> _Message) 
+{
+	if (false == ClientMode_)
+	{
+		return;
+	}
+
+	MessageQueue_.Enqueue(_Message);
+}
+
+std::shared_ptr<GameServerMessage> UClientGameInstance::PopMessage()
+{
+	std::shared_ptr<GameServerMessage> _Message;
+	MessageQueue_.Dequeue(_Message);
+
+	return _Message;
+}
+
+bool UClientGameInstance::IsEmptyMessage() 
+{
+	return MessageQueue_.IsEmpty();
 }
